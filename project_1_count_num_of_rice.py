@@ -78,10 +78,12 @@ def count_objects(img):
     gaussian_blurred = cv2.GaussianBlur(median_filtered, (5, 5), 0)
     
     # Mở rộng ảnh để các bước lọc không ảnh hưởng đến các vùng ở cạnh
+    # lật ảnh 3 kiểu
     flipped_all = cv2.flip(gaussian_blurred, -1)
     flipped_vertical = cv2.flip(gaussian_blurred, 0)
     flipped_horizontal = cv2.flip(gaussian_blurred, 1)
 
+    # gắn ảnh đã lật thành 3*3 ảnh
     row_top = np.concatenate((flipped_all, flipped_vertical, flipped_all), axis=1)
     row_middle = np.concatenate((flipped_horizontal, gaussian_blurred, flipped_horizontal), axis=1)
     row_bottom = np.concatenate((flipped_all, flipped_vertical, flipped_all), axis=1)
