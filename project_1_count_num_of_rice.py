@@ -4,6 +4,7 @@ import glob
 import time
 
 
+# thresh_size xác định kích thước của vùng sẽ đặt lại giá trị xung quanh mỗi điểm nhiễu để các tần số lân cận cũng bị loại bỏ.
 def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size=2):
     height, width = img.shape[:]
     img_fft = np.fft.fft2(img)
@@ -16,11 +17,14 @@ def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size
     center_value = magnitude_spectrum[int(height / 2)][int(width / 2)]
 
     # Tìm điểm có tần số cao
+    # Tạo bộ lọc nhân chập có giá trị trung tâm là -1 và xung quanh là giá trị dương. 
+    # Bộ lọc này giúp phát hiện các điểm tần số nhiễu cao bằng cách làm nổi bật các điểm có tần số cao so với tần số trung bình xung quanh.
     freq_magnitude = np.copy(magnitude_spectrum)
+    # tạo ma trận có độ lớn [2 * filter_size + 1, 2 * filter_size + 1], điểm trung tâm set = 1
     convolution_kernel = np.ones((2 * filter_size + 1, 2 * filter_size + 1), np.float32) / ((2 * filter_size + 1) * (2 * filter_size + 1) - 1)
     convolution_kernel[filter_size][filter_size] = -1
     convolution_kernel = -convolution_kernel
-
+    
     filtered_freq = cv2.filter2D(freq_magnitude, -1, convolution_kernel)
 
     center_threshold = center_value * center_threshold_factor / 356
@@ -28,8 +32,11 @@ def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size
 
     filtered_freq[int(height / 2)][int(width / 2)] = 0
     high_freq_indices = np.where(filtered_freq > center_threshold)
+    print("high_freq_indices")
+    print(high_freq_indices)
 
     # Loại bỏ các điểm không phải là cực đại
+    # tọa độ của các điểm tần số cao được chọn lọc
     selected_x = []
     selected_y = []
 
@@ -42,6 +49,7 @@ def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size
         local_area[filter_size][filter_size] = 0
 
         max_local_value = np.amax(local_area)
+        print("max_local_value ", max_local_value)
 
         if point_value - max_local_value < 20:
             continue
@@ -88,9 +96,11 @@ def count_objects(img):
     # Cân bằng histogram cục bộ
     clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(int(expanded_width / 50), int(expanded_height / 50)))
     equalized_img = clahe.apply(expanded_img)
+    # làm mịn ảnh
     equalized_img = cv2.GaussianBlur(equalized_img, (5, 5), 0)
 
     # Ngưỡng hóa cục bộ
+    # Nhị phân ảnh
     thresholded_img = cv2.adaptiveThreshold(equalized_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 55, -12)
     cropped_thresholded_img = thresholded_img[y1:y2, x1:x2]
 
@@ -106,6 +116,7 @@ def count_objects(img):
     # Tìm các đường viền (contours)
     contours, _ = cv2.findContours(processed_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+    # Tìm đường viền lớn nhất 
     count = 0
     max_area = 0
     for contour in contours:
@@ -114,6 +125,7 @@ def count_objects(img):
 
     # Đếm các đối tượng có diện tích đủ lớn so với đối tượng lớn nhất
     for contour in contours:
+        # giảm bớt số điểm trong đường viền, giúp đơn giản hóa hình dạng của đối tượng.
         approx_contour = cv2.approxPolyDP(contour, 3, True)
         bounding_rect = cv2.boundingRect(approx_contour)
 
@@ -122,8 +134,10 @@ def count_objects(img):
             continue
 
         count += 1
+        # ve hình vuong
         cv2.rectangle(img, (int(bounding_rect[0]), int(bounding_rect[1])),
                       (int(bounding_rect[0] + bounding_rect[2]), int(bounding_rect[1] + bounding_rect[3])), (0, 255, 0), 1)
+        # ve duong vien
         cv2.drawContours(img, contours, -1, (0, 0, 255), 1)
 
     return img, count
