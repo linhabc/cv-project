@@ -2,10 +2,9 @@ import numpy as np
 import cv2
 import glob
 import time
-
-
+import random
 # thresh_size xác định kích thước của vùng sẽ đặt lại giá trị xung quanh mỗi điểm nhiễu để các tần số lân cận cũng bị loại bỏ.
-def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size=2):
+def denoise_periodic(img, filter_size=2, center_threshold_factor=50):
     height, width = img.shape[:]
     img_fft = np.fft.fft2(img)
     shifted_fft = np.fft.fftshift(img_fft)
@@ -28,12 +27,9 @@ def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size
     filtered_freq = cv2.filter2D(freq_magnitude, -1, convolution_kernel)
 
     center_threshold = center_value * center_threshold_factor / 356
-    filtered_freq[0][:] = filtered_freq[1][:] = filtered_freq[:][0] = filtered_freq[:][1] = 0
 
     filtered_freq[int(height / 2)][int(width / 2)] = 0
     high_freq_indices = np.where(filtered_freq > center_threshold)
-    print("high_freq_indices")
-    print(high_freq_indices)
 
     # Loại bỏ các điểm không phải là cực đại
     # tọa độ của các điểm tần số cao được chọn lọc
@@ -49,21 +45,17 @@ def denoise_periodic(img, filter_size=2, center_threshold_factor=50, thresh_size
         local_area[filter_size][filter_size] = 0
 
         max_local_value = np.amax(local_area)
-        print("max_local_value ", max_local_value)
 
         if point_value - max_local_value < 20:
             continue
-        selected_y.append(high_freq_indices[0][i])
-        selected_x.append(high_freq_indices[1][i])
+        selected_x.append(high_freq_indices[0][i])
+        selected_y.append(high_freq_indices[1][i])
 
     # Đặt giá trị tại các điểm nhiễu đã chọn về 1
     for i, _ in enumerate(selected_x):
-        for j in range(thresh_size):
-            for k in range(thresh_size):
-                x = max(0, min(int(selected_y[i] - int(thresh_size / 2) + j), height - 1))
-                y = max(0, min(int(selected_x[i] - int(thresh_size / 2) + k), width - 1))
-                magnitude_spectrum[x, y] = 1
-                shifted_fft[x, y] = 1
+        x =  selected_x[i] 
+        y =  selected_y[i]
+        shifted_fft[x, y] = 1
 
     # Khôi phục ảnh sau khi khử nhiễu
     inverse_shifted_fft = np.fft.ifftshift(shifted_fft)
@@ -107,6 +99,9 @@ def count_objects(img):
     cropped_thresholded_img = thresholded_img[y1:y2, x1:x2]
 
     # Tạo kernel để làm giãn và xói ảnh, giúp loại nhiễu và tách các đối tượng gần nhau
+    # small_kernel erosion với kernel nhỏ làm giảm kích thước các đối tượng nhỏ, loại bỏ các điểm nhiễu nhỏ xung quanh.
+    # small_kernel dilation sau đó giúp phục hồi các đối tượng chính trong ảnh, đảm bảo các chi tiết quan trọng không bị mất đi.
+    # large_kernel Loại bỏ các kết nối mỏng hoặc vùng không mong muốn giữa các đối tượng lớn.
     small_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
     large_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
 
@@ -153,9 +148,8 @@ for path in glob.glob("images/*"):
 
     img_gray = cv2.cvtColor(img_ori,cv2.COLOR_BGR2GRAY)
     h,w = img_gray.shape[:]
-    thres = int(max(h,w)/160)
 
-    img_denoised = denoise_periodic(img_gray, int(thres/2), 50, thres)
+    img_denoised = denoise_periodic(img_gray, 1, 50)
     cv2.imshow("img_denoised ", img_denoised)
 
     img_denoise = img_denoised.copy()
