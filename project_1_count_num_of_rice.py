@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import glob
 import time
-import random
+
 # thresh_size xác định kích thước của vùng sẽ đặt lại giá trị xung quanh mỗi điểm nhiễu để các tần số lân cận cũng bị loại bỏ.
 def denoise_periodic(img, filter_size=2, center_threshold_factor=50):
     height, width = img.shape[:]
@@ -103,7 +103,7 @@ def count_objects(img):
     # small_kernel dilation sau đó giúp phục hồi các đối tượng chính trong ảnh, đảm bảo các chi tiết quan trọng không bị mất đi.
     # large_kernel Loại bỏ các kết nối mỏng hoặc vùng không mong muốn giữa các đối tượng lớn.
     small_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    large_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    large_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (6, 6))
 
     # Giãn và xói ảnh để loại bỏ nhiễu
     processed_img = cv2.erode(cropped_thresholded_img, small_kernel, iterations=1)
